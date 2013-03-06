@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>example</groupId>
+  <artifactId>example</artifactId>
+  <version>0.1</version>
+  <properties>
+    <m:manifest xmlns:m="http://xmuta/maven/manifest">
+      <m:version>1.0</m:version>
+      <m:created-by>Sascha Ziemann &lt;ceving@gmail.com&gt;</m:created-by>
+      <m:main-class>example</m:main-class>
+    </m:manifest>
+  </properties>
+</project>

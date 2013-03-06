@@ -1,0 +1,18 @@
+<project>
+  <target name="clean">
+    <delete>
+      <fileset dir="." includes="*.class"/>
+      <fileset dir="." file="xmuta.class"/>
+      <fileset dir="." includes="*~"/>
+    </delete>
+  </target>
+  <target name="compile">
+    <javac srcdir="." destdir="." debug="true">
+      <compilerarg value="-Xlint:unchecked"/>
+    </javac>
+  </target>
+  <target name="jar" depends="compile">
+    <jar destfile="xmuta.jar" basedir="." 
+         manifest="manifest" includes="*.class"/>
+  </target>
+</project>
