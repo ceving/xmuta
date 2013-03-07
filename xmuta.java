@@ -22,6 +22,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.w3c.dom.Element;
 
 public class xmuta
 {
@@ -43,6 +44,15 @@ public class xmuta
         public void    skip    ()      { i++; }
         public boolean anyleft ()      { return i < args.length; }
         public boolean left    (int n) { return i-1+n < args.length; }
+
+        public boolean in (String... options)
+        {
+            boolean result = false;
+            if (anyleft())
+                for (int j = 0; j < options.length; j++)
+                    result = result || args[i].equals (options[j]);
+            return result;
+        }
 
         public boolean equals (String arg)
         {
@@ -82,10 +92,12 @@ public class xmuta
         catch (Exception e) {
             die ("Can not read XML file '"+ xml_filename + "': " + e);
         }
+        Element root = document.getDocumentElement();
         return document;
     }
 
-    static XPath make_xpath (final Document document)
+    static XPath make_xpath (final Document document,
+                             final String new_default_namespace)
         throws Exception
     {
         XPath xpath = XPathFactory.newInstance().newXPath();
@@ -94,7 +106,12 @@ public class xmuta
                 String default_namespace;
                 Map<String,String> namespace;
                 {
-                    default_namespace = document.lookupNamespaceURI(null);
+                    String old_default_namespace = 
+                        document.lookupNamespaceURI(null);
+                    if (new_default_namespace == null)
+                        default_namespace = old_default_namespace;
+                    else
+                        default_namespace = new_default_namespace;
                     namespace = new HashMap<String,String>();
                     NodeList nodelist = document.getElementsByTagName("*");
                     for (int i = 0, l = nodelist.getLength(); i < l; i++)
@@ -102,9 +119,13 @@ public class xmuta
                         Node node = nodelist.item(i);
                         if (node.getNodeType() == Node.ELEMENT_NODE)
                         {
-                            String uri = node.getNamespaceURI();
-                            if ((uri != null) && !uri.equals(default_namespace))
-                                namespace.put (node.getPrefix(), uri);
+                            String element_namespace = node.getNamespaceURI();
+                            if (element_namespace == null)
+                                document.renameNode (node,
+                                                     new_default_namespace,
+                                                     node.getLocalName());
+                            else if (!element_namespace.equals(default_namespace))
+                                namespace.put (node.getPrefix(), element_namespace);
                         }
                     }
                 }
@@ -154,11 +175,12 @@ public class xmuta
     }
 
     static void test_xpath (String xpath_string,
-                            OutputFormat output_format)
+                            OutputFormat output_format,
+                            String new_default_namespace)
         throws Exception
     {
         final Document document = read_document (null);
-        XPath xpath = make_xpath (document);
+        XPath xpath = make_xpath (document, new_default_namespace);
         System.out.print (evaluate_xpath (document, xpath, xpath_string,
                                           output_format));
     }
@@ -171,11 +193,12 @@ public class xmuta
 
     static void substitute (String xml_filename,
                             Map<String,String> substitutions,
-                            OutputFormat output_format)
+                            OutputFormat output_format,
+                            String new_default_namespace)
         throws Exception
     {
         final Document document = read_document (xml_filename);
-        XPath xpath = make_xpath (document);
+        XPath xpath = make_xpath (document, new_default_namespace);
         for (Map.Entry<String,String> entry : substitutions.entrySet())
             entry.setValue (evaluate_xpath
                             (document, xpath, entry.getValue(),
@@ -197,8 +220,15 @@ public class xmuta
             Arguments args = new Arguments(args_array);
 
             OutputFormat output_format = OutputFormat.TEXT;
-            if (args.equals("-x"))
-                output_format = OutputFormat.XML;
+            String new_default_namespace = null;
+
+            while (args.in ("-d", "-x"))
+            {
+                if (args.equals("-d"))
+                    new_default_namespace = args.require("Default name space");
+                if (args.equals("-x"))
+                    output_format = OutputFormat.XML;
+            }
 
             if (args.equals("-h"))
             {
@@ -208,7 +238,8 @@ public class xmuta
                      "Usage:" + nl +
                      "    xmuta [-x] <xmlfile> (<regexp> <xpath>)+" + nl + 
                      "Options:" + nl +
-                     "    -x    Generate XML output. Default is TEXT." + nl +
+                     "    -d NS   Add a default name space if the XML file does not have any." + nl +
+                     "    -x      Generate XML output. Default is TEXT." + nl +
                      "Test XPath:" + nl +
                      "    xmuta [-x] -p <xpath>" + nl + 
                      "Test regular expression:" + nl +
@@ -216,7 +247,9 @@ public class xmuta
             }
             else if (args.equals("-p"))
             {
-                test_xpath (args.require ("XPath expression"), output_format);
+                test_xpath (args.require ("XPath expression"),
+                            output_format,
+                            new_default_namespace);
             }
             else if (args.equals("-r"))
             {
@@ -228,7 +261,8 @@ public class xmuta
                 Map<String,String> substitutions = new HashMap<String,String>();
                 while (args.left(2))
                     substitutions.put(args.next(), args.next());
-                substitute (xml_filename, substitutions, output_format);
+                substitute (xml_filename, substitutions, output_format,
+                            new_default_namespace);
             }
         }
         catch (Exception e)
